@@ -1,5 +1,21 @@
 # @unmap/app-quiet-streets
 
+## 0.0.8
+
+### Patch Changes
+
+- @unmap/sdk@0.33.0
+- @unmap/maps@0.33.0
+- @unmap/geocoding@0.33.0
+
+## 0.0.7
+
+### Patch Changes
+
+- @unmap/sdk@0.32.2
+- @unmap/maps@0.32.2
+- @unmap/geocoding@0.32.2
+
 ## 0.0.6
 
 ### Patch Changes
