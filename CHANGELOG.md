@@ -1,5 +1,15 @@
 # @unmap/app-quiet-streets
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [dc33fef]
+- Updated dependencies [dc33fef]
+  - @unmap/geocoding@0.34.0
+  - @unmap/maps@0.34.0
+  - @unmap/sdk@0.34.0
+
 ## 0.0.8
 
 ### Patch Changes
