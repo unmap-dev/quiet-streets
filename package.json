@@ -1,8 +1,8 @@
 {
   "name": "unmap-quiet-streets",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "private": true,
-  "description": "Quiet Streets: how loud a street is, day and night, in six Canadian cities, and up to three places side by side, built with Unmap. An Unmap app and a starter you can clone.",
+  "description": "Quiet Streets: how loud a street is, day and night, across Canada's 41 metropolitan areas, and up to three places side by side, built with Unmap. An Unmap app and a starter you can clone.",
   "scripts": {
     "dev": "node scripts/copy-maplibre-worker.mjs && next dev --port 3204",
     "build": "node scripts/copy-maplibre-worker.mjs && next build",
@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@unmap/geocoding": "0.35.0",
-    "@unmap/maps": "0.35.0",
-    "@unmap/sdk": "0.35.0",
+    "@unmap/geocoding": "0.36.0",
+    "@unmap/maps": "0.36.0",
+    "@unmap/sdk": "0.36.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "geist": "^1.7.2",

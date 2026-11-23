@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { COVERAGE_BBOX, findCity, fitView } from "../lib/cities";
 import { CITIES_422, META, json, noisePoint, silentPoint } from "./fixtures";
 
 type Props = Record<string, unknown>;
@@ -15,6 +16,7 @@ function fakeMap() {
   const map = {
     pick: false,
     center: { lng: -114.07, lat: 51.04 },
+    zoom: 12,
     on: (type: string, fn: Handler) => void (handlers[type] ??= new Set()).add(fn),
     off: (type: string, fn: Handler) => void handlers[type]?.delete(fn),
     fire: (type: string, event?: unknown) => handlers[type]?.forEach((fn) => fn(event)),
@@ -24,7 +26,7 @@ function fakeMap() {
     getStyle: () => null,
     getCanvas: () => undefined,
     getContainer: () => ({ getBoundingClientRect: () => ({ left: 0, top: 0, right: 1000, bottom: 700, width: 1000, height: 700 }) }),
-    getZoom: () => 12,
+    getZoom: () => map.zoom,
     flyTo: vi.fn(),
     jumpTo: vi.fn(),
     fitBounds: vi.fn(),
@@ -143,33 +145,51 @@ describe("without a key", () => {
   });
 });
 
-describe("the city picker", () => {
-  it("opens first, lists the six cities, and calls nothing", async () => {
-    await open();
-    const picker = document.querySelector("[data-city-picker]") as HTMLElement;
-    expect([...picker.querySelectorAll("[data-city]")].map((el) => el.getAttribute("data-city"))).toEqual(["calgary", "edmonton", "vancouver", "toronto", "montreal", "quebec-city"]);
-    expect(picker.textContent).toContain("631,986 hexagons");
-    expect(picker.textContent).toContain("Traffic from the city's own counts");
-    expect(within(picker).getByRole("link", { name: "Coverage and limits" }).getAttribute("href")).toBe("https://unmap.dev/docs/urban-noise#coverage-and-limits");
-    expect(gateway).not.toHaveBeenCalled();
-  });
+describe("opening", () => {
+  const view = (bbox: [number, number, number, number]) => fitView(bbox, window.innerWidth, window.innerHeight - 96);
 
-  it("opens the map on the picked city and puts it in the link", async () => {
+  it("goes straight to the national map with the overlay, no picker, framed on all 41 areas", async () => {
     await open();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Open the noise map of Toronto" }));
-    });
-    await act(async () => {});
-    expect(window.location.search).toBe("?city=toronto");
-    expect(mocks.props.map?.center).toEqual([(-79.663 + -79.107) / 2, (43.571 + 43.869) / 2]);
+    expect(screen.getByTestId("map")).toBeTruthy();
+    expect(document.querySelector("[data-city-picker]")).toBeNull();
+    const opening = view(COVERAGE_BBOX);
+    expect(mocks.props.map?.center).toEqual(opening.center);
+    expect(mocks.props.map?.zoom).toBe(opening.zoom);
+    expect(opening.zoom).toBeLessThan(5);
     expect(mocks.props.map?.overlays).toEqual(["urban-noise"]);
     expect(calls("/layers/urban-noise/22/0/0")).toBe(1);
+    expect(calls("/noise/point")).toBe(0);
+    expect(window.location.search).toBe("");
+    // The camera is over the country, not an area: the header switch says where it can go.
+    await act(async () => {
+      mocks.map!.zoom = opening.zoom;
+      mocks.map!.fire("moveend");
+    });
+    expect(document.querySelector("[data-city-select]")?.textContent).toContain("Jump to an area");
+  });
+
+  it("opens framed on the area a shared link names, any of the 41", async () => {
+    await open("?city=winnipeg");
+    const opening = view(findCity("winnipeg")!.bbox);
+    expect(mocks.props.map?.center).toEqual(opening.center);
+    expect(mocks.props.map?.zoom).toBe(opening.zoom);
+    expect(opening.zoom).toBeGreaterThan(7);
+    expect(window.location.search).toBe("?city=winnipeg");
+  });
+
+  it("opens on the national map for a link that names no covered area", async () => {
+    await open("?city=thompson");
+    expect(mocks.props.map?.center).toEqual(view(COVERAGE_BBOX).center);
   });
 
   it("is in French with ?lang=fr, docs link included", async () => {
     await open("?lang=fr");
-    expect(screen.getByRole("heading", { name: "Quelle ville?" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Couverture et limites" }).getAttribute("href")).toBe("https://unmap.dev/fr/docs/urban-noise#couverture-et-limites");
+    await act(async () => {
+      mocks.map!.zoom = 3;
+      mocks.map!.fire("moveend");
+    });
+    expect(document.querySelector("[data-city-select]")?.textContent).toContain("Aller à une région");
   });
 });
 
@@ -243,13 +263,18 @@ describe("the noise map", () => {
     expect(sheet.textContent).toContain("noise model: PickYourPlace");
   });
 
-  it("offers no pin for a place outside the six cities, and the block says it is not covered", async () => {
+  it("offers no pin for a place outside the 41 areas, and the block offers the nearest covered ones", async () => {
     answers.point = () => json(CITIES_422, 422);
-    await open("?city=calgary");
-    await clickMap(-97.14, 49.9);
+    await open();
+    // Northern Manitoba, outside every area.
+    await clickMap(-97.85, 55.74);
     const tray = document.querySelector("[data-compare-tray=card]") as HTMLElement;
     expect(within(tray).queryByRole("button", { name: "Pin this place" })).toBeNull();
-    expect(screen.getByText("This place is not covered")).toBeTruthy();
+    const answer = screen.getByTestId("noise-answer");
+    expect(within(answer).getByText("This place is not covered")).toBeTruthy();
+    expect(answer.textContent).toContain("41 census metropolitan areas");
+    expect(within(answer).getAllByRole("button").map((button) => button.textContent)).toEqual(["Winnipeg", "Saskatoon", "Regina"]);
+    expect(answer.textContent).not.toMatch(/\d+ dB/);
   });
 
   it("shows no compare tray to a key without the add-on, and the block links pricing", async () => {
@@ -261,12 +286,24 @@ describe("the noise map", () => {
     expect(calls("/noise/point")).toBe(0);
   });
 
-  it("shows the city the camera is over in the header's switch", async () => {
+  it("shows the area the camera is over in the header's switch, the smallest box winning", async () => {
     await open("?city=calgary");
     await act(async () => {
       mocks.map!.center = { lng: -73.57, lat: 45.5 };
       mocks.map!.fire("moveend");
     });
     expect(document.querySelector("[data-city-select]")?.textContent).toContain("Montréal");
+    // Oshawa's box sits inside Toronto's.
+    await act(async () => {
+      mocks.map!.center = { lng: -78.86, lat: 43.9 };
+      mocks.map!.fire("moveend");
+    });
+    expect(document.querySelector("[data-city-select]")?.textContent).toContain("Oshawa");
+    // Between areas, the placeholder.
+    await act(async () => {
+      mocks.map!.center = { lng: -97.85, lat: 55.74 };
+      mocks.map!.fire("moveend");
+    });
+    expect(document.querySelector("[data-city-select]")?.textContent).toContain("Jump to an area");
   });
 });

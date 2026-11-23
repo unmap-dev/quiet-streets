@@ -1,5 +1,18 @@
 # @unmap/app-quiet-streets
 
+## 0.1.0
+
+### Minor Changes
+
+- f938ad8: Quiet Streets goes national: Canada's 41 census metropolitan areas instead of six cities. The city picker is gone, so the app opens straight on the noise map framed on all 41 areas and fitted to the screen; `?city=<slug>` still opens framed on one area (any of the 41). The header switch jumps to any area, sorted by name in the page's language. A place outside coverage offers the three nearest covered areas, and the card says how good the model's inputs were at each spot.
+
+### Patch Changes
+
+- Updated dependencies [f938ad8]
+  - @unmap/sdk@0.36.0
+  - @unmap/maps@0.36.0
+  - @unmap/geocoding@0.36.0
+
 ## 0.0.10
 
 ### Patch Changes

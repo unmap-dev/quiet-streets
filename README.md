@@ -1,9 +1,9 @@
 # Quiet Streets, built with Unmap
 
-How loud a street is, by day and at night, in Calgary, Edmonton, Vancouver, Toronto, Montréal and
-Québec City. Pick a city, then click the map or search an address: the card gives the spot's day
-level (Lden) and night level (Lnight) against the WHO guideline, its score, its main source and a
-bar per source. Pin up to three places and compare them side by side. One of the
+How loud a street is, by day and at night, across Canada's 41 census metropolitan areas, St. John's
+to Nanaimo. The app opens straight on the national noise map: click the map or search an address,
+and the card gives the spot's day level (Lden) and night level (Lnight) against the WHO guideline,
+its score, its main source, a bar per source and how good the model's inputs were there. Pin up to three places and compare them side by side. One of the
 [Unmap apps](https://unmap.dev/apps); live at
 [apps.unmap.dev/quiet-streets](https://apps.unmap.dev/quiet-streets/).
 
@@ -51,15 +51,16 @@ domain) in the dashboard. Any static host works: `out/` is plain files.
 
 | When | Call | Requests |
 | --- | --- | --- |
-| You open a city | the block's add-on check, `GET /layers/urban-noise/22/0/0` | 1 |
+| You open the app | the block's add-on check, `GET /layers/urban-noise/22/0/0` | 1 |
 | The same | the map's style (`overlays=urban-noise`, only once the check passes) and its tiles | as the map loads them |
 | You click a spot or choose a search result | `noise.point({ lat, lng })`, `GET /noise/point` | 1 per place, kept for the session |
 | You type an address | the registry `geocoder`'s autocomplete, `GET /geocode/autocomplete` | 1 per pause in typing |
 | You switch Day and Night, pin a place, or compare | nothing: both levels are in the tiles, and pins reuse the lookup's answer | 0 |
 
 A spot asked for again (the same search result, or the same place pinned twice) is answered from
-the session, not the network. A place outside the six cities is a `422 outside_coverage`, also
-kept: the app says it is not covered, lists the cities, and never shows a number for it. A hexagon
+the session, not the network. A place outside the 41 metropolitan areas is a
+`422 outside_coverage`, also kept: the app says it is not covered, offers the three nearest covered
+areas to jump to, and never shows a number for it. A hexagon
 with no modelled source has a null `lden`: the app says "no modelled source", never 0 dB and never
 quiet.
 
@@ -67,7 +68,8 @@ quiet.
 
 | Query | |
 | --- | --- |
-| `?city=montreal` | opens the map on that city instead of the picker (`calgary`, `edmonton`, `vancouver`, `toronto`, `montreal`, `quebec-city`) |
+| (none) | opens on all 41 covered metropolitan areas at once, fitted to the screen |
+| `?city=winnipeg` | opens framed on that metropolitan area instead: any of the 41 slugs in `lib/cities.ts` (`st-johns`, `halifax`, `ottawa-gatineau`, `toronto`, `calgary`, `vancouver`, ...) |
 | `?period=night` | colours the map by the night level, Lnight |
 | `?lang=fr` | French |
 
@@ -77,20 +79,20 @@ Pins are not in the link: each one is a lookup, and opening a link should cost n
 
 ```
 app/page.tsx                      the one page; renders the app in the browser
-components/quiet/                 the app: city picker, notice, header city switch, compare tray, comparison, pin markers
+components/quiet/                 the app: notice, header area switch, compare tray, comparison, pin markers
 components/ui/  lib/map-*         Unmap registry items and shadcn primitives, copied in unmodified
 lib/kit/                          the Unmap app kit (header, Built with Unmap panel, errors, en/fr), copied in
 hooks/                            the session, the URL state, what the app reads off the block's map
 lib/session.ts                    the session cache under the block's /noise/point calls (no React)
 lib/pins.ts                       pinning and comparing (no React, no fetch)
-lib/cities.ts  lib/url.ts         the six cities, the shareable link
+lib/cities.ts  lib/url.ts         the 41 metropolitan areas and the opening view, the shareable link
 lib/manifest.ts  lib/text.ts      what the Built with Unmap panel lists; this app's words in English and French
 ```
 
 The whole map, the card, the legend, the Day / Night switch and the search are the
 `urban-noise-map` block, unchanged. The app composes around it:
 
-- An outer `MapProvider` with no map of its own lets the header's city switch, the pin markers
+- An outer `MapProvider` with no map of its own lets the header's area switch, the pin markers
   (the registry `Marker`) and the tray reach the map the block registers as `urban-noise-map`.
 - The block owns its `/noise/point` call and exposes no callback with the answer, so
   `lib/session.ts` puts a `fetch` in front of the page's own and, for the block's three gateway

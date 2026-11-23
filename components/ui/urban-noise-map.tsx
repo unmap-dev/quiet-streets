@@ -1,15 +1,16 @@
 "use client";
 
 /**
- * <UrbanNoiseMap> - how loud a street is, day and night, in six Canadian cities: the modelled
- * noise overlay on a quiet basemap, a Day / Night switch that recolours the whole map from the
- * day-evening-night level (Lden) to the night level (Lnight), and, for a spot you click or an
- * address you search, a card with that spot's level against the WHO 2018 guideline (53 dB Lden by
- * day, 45 dB Lnight at night), its WHO-anchored score and a bar per noise source. A full-bleed map
- * with a floating panel, a bottom sheet on a phone.
+ * <UrbanNoiseMap> - how loud a street is, day and night, across Canada's 41 census metropolitan
+ * areas: the modelled noise overlay on a quiet basemap, a Day / Night switch that recolours the
+ * whole map from the day-evening-night level (Lden) to the night level (Lnight), and, for a spot
+ * you click or an address you search, a card with that spot's level against the WHO 2018 guideline
+ * (53 dB Lden by day, 45 dB Lnight at night), its WHO-anchored score, a bar per noise source and a
+ * line on how good the model's inputs were there. A full-bleed map with a floating panel, a bottom
+ * sheet on a phone.
  *
- * Coverage is Calgary, Edmonton, Vancouver, Toronto, Montréal and Québec City. A spot outside them
- * gets a "not covered" answer with the six cities to jump to, never a number. A spot with no
+ * Coverage is the 41 census metropolitan areas, St. John's to Nanaimo. A spot outside them gets a
+ * "not covered" answer with the nearest covered areas to jump to, never a number. A spot with no
  * modelled source in range says so, never 0 dB and never "quiet".
  *
  * The overlay and the lookup need the Urban Noise add-on. The block asks the gateway once whether
@@ -95,22 +96,67 @@ export const PERIOD_FADE_MS = 180;
 export const NOISE_SOURCES = ["road", "rail", "aircraft", "commercial"] as const;
 export type NoiseSourceKey = (typeof NOISE_SOURCES)[number];
 
-/** A city Urban Noise covers. `bbox` is [west, south, east, north]. */
+/** A metropolitan area Urban Noise covers, as a 422 `outside_coverage` lists it. `bbox` is [west, south, east, north]. */
 export interface NoiseCityRef {
   slug: string;
   name: { en: string; fr: string };
   bbox: [number, number, number, number];
 }
 
-/** The six covered cities, from the release manifest, for the "start in a city" buttons. */
-export const NOISE_CITIES: readonly NoiseCityRef[] = [
-  { slug: "calgary", name: { en: "Calgary", fr: "Calgary" }, bbox: [-114.334, 50.832, -113.856, 51.219] },
-  { slug: "edmonton", name: { en: "Edmonton", fr: "Edmonton" }, bbox: [-113.735, 53.371, -113.235, 53.719] },
-  { slug: "vancouver", name: { en: "Vancouver", fr: "Vancouver" }, bbox: [-123.293, 49.092, -122.987, 49.328] },
-  { slug: "toronto", name: { en: "Toronto", fr: "Toronto" }, bbox: [-79.663, 43.571, -79.107, 43.869] },
-  { slug: "montreal", name: { en: "Montréal", fr: "Montréal" }, bbox: [-73.984, 45.381, -73.446, 45.729] },
-  { slug: "quebec-city", name: { en: "Québec City", fr: "Québec" }, bbox: [-71.585, 46.702, -71.106, 47.007] },
-];
+/** How many covered areas the "not covered" answer offers: the nearest ones. */
+export const NEAREST_AREAS = 3;
+
+/**
+ * The names of the 41 census metropolitan areas, by the slug `/noise/point` returns in `city`, so
+ * the card can name the area a spot is in. French equals English except Québec and Grand Sudbury.
+ */
+export const NOISE_AREA_NAMES: Readonly<Record<string, { en: string; fr: string }>> = Object.fromEntries(
+  (
+    [
+      ["st-johns", "St. John's"],
+      ["halifax", "Halifax"],
+      ["moncton", "Moncton"],
+      ["saint-john", "Saint John"],
+      ["fredericton", "Fredericton"],
+      ["saguenay", "Saguenay"],
+      ["quebec-city", "Québec City", "Québec"],
+      ["sherbrooke", "Sherbrooke"],
+      ["trois-rivieres", "Trois-Rivières"],
+      ["drummondville", "Drummondville"],
+      ["montreal", "Montréal"],
+      ["ottawa-gatineau", "Ottawa–Gatineau"],
+      ["kingston", "Kingston"],
+      ["belleville-quinte-west", "Belleville–Quinte West"],
+      ["peterborough", "Peterborough"],
+      ["oshawa", "Oshawa"],
+      ["toronto", "Toronto"],
+      ["hamilton", "Hamilton"],
+      ["st-catharines-niagara", "St. Catharines–Niagara"],
+      ["kitchener-cambridge-waterloo", "Kitchener–Cambridge–Waterloo"],
+      ["brantford", "Brantford"],
+      ["guelph", "Guelph"],
+      ["london", "London"],
+      ["windsor", "Windsor"],
+      ["barrie", "Barrie"],
+      ["greater-sudbury", "Greater Sudbury", "Grand Sudbury"],
+      ["thunder-bay", "Thunder Bay"],
+      ["winnipeg", "Winnipeg"],
+      ["regina", "Regina"],
+      ["saskatoon", "Saskatoon"],
+      ["lethbridge", "Lethbridge"],
+      ["calgary", "Calgary"],
+      ["red-deer", "Red Deer"],
+      ["edmonton", "Edmonton"],
+      ["kelowna", "Kelowna"],
+      ["kamloops", "Kamloops"],
+      ["chilliwack", "Chilliwack"],
+      ["abbotsford-mission", "Abbotsford–Mission"],
+      ["vancouver", "Vancouver"],
+      ["victoria", "Victoria"],
+      ["nanaimo", "Nanaimo"],
+    ] as Array<[string, string, string?]>
+  ).map(([slug, en, fr]) => [slug, { en, fr: fr ?? en }]),
+);
 
 export const NOISE_COPY = {
   en: {
@@ -122,7 +168,7 @@ export const NOISE_COPY = {
     period: "Colour the map by",
     periods: { day: "Day", night: "Night" },
     metrics: { day: "Lden", night: "Lnight" },
-    startIn: "Or start in a city",
+    nearest: "Nearest covered areas",
     goTo: (city: string) => `Go to ${city}`,
     loading: "Looking up this spot...",
     droppedPin: "Dropped pin",
@@ -142,11 +188,16 @@ export const NOISE_COPY = {
     mainIs: (source: string) => `Main source: ${source}`,
     notModelled: "Not modelled here",
     sources: { road: "Road traffic", rail: "Rail", aircraft: "Aircraft", commercial: "Commercial" },
+    inputs: {
+      1: "Inputs: counted traffic and measured building heights",
+      2: "Inputs: counted traffic, counted trains or open aircraft contours",
+      3: "Inputs: traffic estimated from road class, not counted",
+    } as Record<NoiseInputTierValue, string>,
     noSourceTitle: "No modelled noise source here",
     noSourceBody:
       "No road, rail, aircraft or commercial source is modelled within range of this spot. That is not the same as quiet: the model has nothing to say here.",
     outsideTitle: "This place is not covered",
-    outsideBody: "Urban Noise covers six cities. Pick one to look there.",
+    outsideBody: "Urban Noise covers Canada's 41 census metropolitan areas, and this spot is outside them.",
     unavailableTitle: "Urban noise is not available yet",
     unavailableBody: "The gateway is not serving the noise data yet, so the map shows no overlay. Try again later.",
     deniedTitle: {
@@ -199,7 +250,7 @@ export const NOISE_COPY = {
     period: "Colorer la carte selon",
     periods: { day: "Jour", night: "Nuit" },
     metrics: { day: "Lden", night: "Lnight" },
-    startIn: "Ou commencez dans une ville",
+    nearest: "Régions couvertes les plus proches",
     goTo: (city: string) => `Aller à ${city}`,
     loading: "Recherche de ce point...",
     droppedPin: "Point choisi",
@@ -219,11 +270,16 @@ export const NOISE_COPY = {
     mainIs: (source: string) => `Source principale\u00a0: ${source}`,
     notModelled: "Non modélisé ici",
     sources: { road: "Circulation routière", rail: "Train", aircraft: "Avions", commercial: "Commerces" },
+    inputs: {
+      1: "Données\u00a0: circulation comptée et hauteurs de bâtiments mesurées",
+      2: "Données\u00a0: circulation comptée, trains comptés ou courbes de bruit d'aéroport en données ouvertes",
+      3: "Données\u00a0: circulation estimée selon le type de route, non comptée",
+    } as Record<NoiseInputTierValue, string>,
     noSourceTitle: "Aucune source de bruit modélisée ici",
     noSourceBody:
       "Aucune source routière, ferroviaire, aérienne ou commerciale n'est modélisée à portée de ce point. Ce n'est pas la même chose que le calme : le modèle n'a rien à dire ici.",
     outsideTitle: "Ce lieu n'est pas couvert",
-    outsideBody: "Bruit urbain couvre six villes. Choisissez-en une pour y regarder.",
+    outsideBody: "Bruit urbain couvre les 41 régions métropolitaines de recensement du Canada, et ce point est en dehors.",
     unavailableTitle: "Le bruit urbain n'est pas encore offert",
     unavailableBody: "La passerelle ne sert pas encore les données de bruit : la carte s'affiche sans la couche. Réessayez plus tard.",
     deniedTitle: {
@@ -323,13 +379,25 @@ export type NoiseFailure =
   | { kind: "keyRefused" }
   | { kind: "failed" };
 
-/** The failure a rejected `/noise/point` means. A 422 lists the covered cities; the six known ones stand in if it did not. */
+/** True for a covered area as a 422 lists it: a slug, both names and a four-number bbox. */
+function isCityRef(value: unknown): value is NoiseCityRef {
+  const city = value as { slug?: unknown; name?: { en?: unknown; fr?: unknown } | null; bbox?: unknown } | null;
+  return (
+    typeof city?.slug === "string" &&
+    typeof city.name?.en === "string" &&
+    typeof city.name?.fr === "string" &&
+    Array.isArray(city.bbox) &&
+    city.bbox.length === 4 &&
+    city.bbox.every((edge) => typeof edge === "number" && Number.isFinite(edge))
+  );
+}
+
+/** The failure a rejected `/noise/point` means. A 422 lists the covered areas; with none listed, the answer is the message alone. */
 export function failureFrom(caught: unknown): NoiseFailure {
   const failure = typeof caught === "object" && caught !== null ? (caught as { status?: unknown; code?: unknown; addon?: unknown; cities?: unknown }) : {};
   const status = typeof failure.status === "number" ? failure.status : 0;
   if (status === 422 && failure.code === "outside_coverage") {
-    const cities = Array.isArray(failure.cities) && failure.cities.length > 0 ? (failure.cities as NoiseCityRef[]) : [...NOISE_CITIES];
-    return { kind: "outside", cities };
+    return { kind: "outside", cities: Array.isArray(failure.cities) ? failure.cities.filter(isCityRef) : [] };
   }
   const code = deniedCode(failure.code);
   if (status === 403 && code) return { kind: "denied", code, addon: typeof failure.addon === "string" ? failure.addon : "" };
@@ -352,10 +420,47 @@ export function formatCoords(at: [number, number], lang: NoiseLang): string {
   return `${number.format(at[1])}${lang === "fr" ? " ; " : ", "}${number.format(at[0])}`;
 }
 
-/** A city's name in the reader's language, by its slug, among `cities`; the slug when it is not there. */
-export function cityName(slug: string, lang: NoiseLang, cities: readonly NoiseCityRef[] = NOISE_CITIES): string {
-  const city = cities.find((entry) => entry.slug === slug) ?? NOISE_CITIES.find((entry) => entry.slug === slug);
-  return city ? city.name[lang] : slug;
+/**
+ * An area's name in the reader's language, by its slug: from `cities` (a 422's list) when it is
+ * there, else from the 41 known names, else the slug made readable ("new-area" reads "New Area").
+ */
+export function cityName(slug: string, lang: NoiseLang, cities: readonly NoiseCityRef[] = []): string {
+  const name = cities.find((entry) => entry.slug === slug)?.name ?? NOISE_AREA_NAMES[slug];
+  if (name) return name[lang];
+  return slug
+    .split(/[-_]+/)
+    .filter((word) => word !== "")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/** How far `at` is from a box, in kilometres, along the ground: zero inside it. */
+export function bboxDistanceKm(at: [number, number], bbox: [number, number, number, number]): number {
+  const [west, south, east, north] = bbox;
+  const near: [number, number] = [Math.min(Math.max(at[0], west), east), Math.min(Math.max(at[1], south), north)];
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = radians(near[1] - at[1]);
+  const dLng = radians(near[0] - at[0]);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(radians(at[1])) * Math.cos(radians(near[1])) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** The covered areas nearest `at`, nearest first, by the distance to each one's box: the "not covered" answer's way out. */
+export function nearestCities(at: [number, number], cities: readonly NoiseCityRef[], count = NEAREST_AREAS): NoiseCityRef[] {
+  return cities
+    .map((city) => ({ city, km: bboxDistanceKm(at, city.bbox) }))
+    .sort((a, b) => a.km - b.km || a.city.slug.localeCompare(b.city.slug))
+    .slice(0, count)
+    .map((entry) => entry.city);
+}
+
+/** The model's input tiers: 1 counted traffic and measured building heights, 2 counted traffic, trains or open aircraft contours, 3 traffic defaulted by road class. */
+export type NoiseInputTierValue = 1 | 2 | 3;
+
+/** The card's line on how good the inputs were at a spot; null when the answer carries no tier (no source, or a release before the national one). */
+export function inputTierText(point: Pick<NoiseReading, "input_tier">, lang: NoiseLang): string | null {
+  const tier = point.input_tier;
+  return tier === 1 || tier === 2 || tier === 3 ? NOISE_COPY[lang].inputs[tier] : null;
 }
 
 /** Where `db` falls on the card's bar, 0 to 1. */
@@ -372,6 +477,8 @@ export interface NoiseReading {
   exceeds_who: { day: boolean | null; night: boolean | null };
   dominant_source: string | null;
   sources_db: Partial<Record<NoiseSourceKey, number | null>>;
+  /** Absent from releases before the national one, and from an SDK that predates it. */
+  input_tier?: number | null;
 }
 
 /** One period's level and where it stands against the WHO guideline; null `db` when nothing is modelled. */
@@ -630,7 +737,7 @@ export function flyToPoint(map: NoiseCameraMap, at: [number, number], panel: Noi
   else map.flyTo({ ...camera, duration: 1200, essential: true });
 }
 
-/** Frame a covered city, clear of the panel. */
+/** Frame a covered area, clear of the panel. */
 export function flyToCity(map: NoiseCameraMap, city: NoiseCityRef, panel: NoiseRect | null): void {
   const [west, south, east, north] = city.bbox;
   const padding = panelPadding(map.getContainer().getBoundingClientRect(), panel);
@@ -671,7 +778,7 @@ type NoiseLookup =
   | { state: "result"; at: [number, number]; name: string | null; point: NoisePoint }
   | { state: "failed"; at: [number, number]; name: string | null; failure: NoiseFailure };
 
-/** A camera move the map binding makes: to a searched spot or a city, once per `seq`. */
+/** A camera move the map binding makes: to a searched spot or a covered area, once per `seq`. */
 type NoiseFlight = { seq: number; to: { kind: "point"; at: [number, number] } | { kind: "city"; city: NoiseCityRef } };
 
 export function UrbanNoiseMap({
@@ -812,6 +919,8 @@ export function UrbanNoiseMap({
   const fold = collapsed ? "max-sm:hidden" : undefined;
   const pick =
     lookup.state === "idle" ? null : { at: lookup.at, h3: lookup.state === "result" && lookup.point.lden !== null ? lookup.point.h3 : null };
+  // The card's body holds the add-on answer or a spot; an idle, granted card is the title, the tools and the credits.
+  const body = !granted || lookup.state !== "idle";
 
   return (
     <div data-unmap-block="urban-noise-map" data-period={period} className={["relative h-full min-h-[480px]", className].filter(Boolean).join(" ")}>
@@ -872,7 +981,7 @@ export function UrbanNoiseMap({
               ) : null}
             </CardHeader>
             {granted ? (
-              <div data-testid="noise-tools" className={["flex shrink-0 flex-col gap-2.5 border-b px-6 pb-4", fold].filter(Boolean).join(" ")}>
+              <div data-testid="noise-tools" className={["flex shrink-0 flex-col gap-2.5 px-6 pb-4", body ? "border-b" : "", fold].filter(Boolean).join(" ")}>
                 <Geocoder
                   mapId={NOISE_MAP_ID}
                   apiKey={apiKey}
@@ -909,6 +1018,7 @@ export function UrbanNoiseMap({
                 </ToggleGroup>
               </div>
             ) : null}
+            {body ? (
             <CardContent className={["flex flex-col gap-4 py-4 max-sm:shrink-0 sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:overscroll-contain", fold].filter(Boolean).join(" ")}>
               {gate.state === "denied" || gate.state === "unknown" || gate.state === "unavailable" ? (
                 <Alert data-unmap-addon-gate={gate.state === "denied" ? gate.code : gate.state}>
@@ -929,7 +1039,6 @@ export function UrbanNoiseMap({
                   </AlertDescription>
                 </Alert>
               ) : null}
-              {granted && lookup.state === "idle" ? <CityButtons lang={lang} label={copy.startIn} onCity={chooseCity} /> : null}
               {granted && lookup.state === "loading" ? <NoiseCardSkeleton lang={lang} /> : null}
               {granted && lookup.state === "result" ? (
                 <NoiseAnswer key={`${lookup.at.join(",")}`} lang={lang} period={period} place={place} at={lookup.at} point={lookup.point} onClear={clear} />
@@ -937,6 +1046,7 @@ export function UrbanNoiseMap({
               {granted && lookup.state === "failed" ? (
                 <NoiseFailureCard
                   lang={lang}
+                  at={lookup.at}
                   failure={lookup.failure}
                   onRetry={() => lookUp(lookup.at, lookup.name)}
                   onCity={chooseCity}
@@ -944,6 +1054,7 @@ export function UrbanNoiseMap({
                 />
               ) : null}
             </CardContent>
+            ) : null}
             <div data-testid="noise-credits" className={["flex shrink-0 flex-col gap-1 border-t px-6 py-3 text-xs text-muted-foreground", fold].filter(Boolean).join(" ")}>
               <p>
                 <a className="underline underline-offset-2" href={copy.attributionUrl} target="_blank" rel="noreferrer">
@@ -964,8 +1075,8 @@ export function UrbanNoiseMap({
   );
 }
 
-/** The six cities as buttons that frame each one: the empty state's first action, and the way out of "not covered". */
-function CityButtons({ lang, label, cities = NOISE_CITIES, onCity }: { lang: NoiseLang; label: string; cities?: readonly NoiseCityRef[]; onCity: (city: NoiseCityRef) => void }) {
+/** Covered areas as buttons that frame each one: the way out of "not covered". */
+function CityButtons({ lang, label, cities, onCity }: { lang: NoiseLang; label: string; cities: readonly NoiseCityRef[]; onCity: (city: NoiseCityRef) => void }) {
   const copy = NOISE_COPY[lang];
   return (
     <div data-testid="noise-cities" className="flex flex-col gap-2">
@@ -1040,6 +1151,7 @@ function NoiseAnswer({
 }) {
   const copy = NOISE_COPY[lang];
   const reading = periodReading(point, period);
+  const inputs = inputTierText(point, lang);
   const header = (
     <div className="flex items-start justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -1080,6 +1192,11 @@ function NoiseAnswer({
             {reading.above ? copy.above[period] : copy.within[period]}
           </Badge>
         </div>
+        {inputs ? (
+          <p data-testid="noise-inputs" className="text-xs text-muted-foreground">
+            {inputs}
+          </p>
+        ) : null}
       </div>
       <dl className="flex flex-col gap-3">
         {(["day", "night"] as const).map((value) => {
@@ -1139,15 +1256,17 @@ function NoiseAnswer({
   );
 }
 
-/** Why a spot has no level, and the way forward: the six cities, the pricing page, or a retry. */
+/** Why a spot has no level, and the way forward: the nearest covered areas, the pricing page, or a retry. */
 function NoiseFailureCard({
   lang,
+  at,
   failure,
   onRetry,
   onCity,
   onClear,
 }: {
   lang: NoiseLang;
+  at: [number, number];
   failure: NoiseFailure;
   onRetry: () => void;
   onCity: (city: NoiseCityRef) => void;
@@ -1155,6 +1274,7 @@ function NoiseFailureCard({
 }) {
   const copy = NOISE_COPY[lang];
   if (failure.kind === "outside") {
+    const nearest = nearestCities(at, failure.cities);
     return (
       <section data-testid="noise-answer" data-state="outside" className="flex flex-col gap-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200">
         <Alert>
@@ -1163,7 +1283,7 @@ function NoiseFailureCard({
             <p>{copy.outsideBody}</p>
           </AlertDescription>
         </Alert>
-        <CityButtons lang={lang} label={copy.startIn} cities={failure.cities} onCity={onCity} />
+        {nearest.length > 0 ? <CityButtons lang={lang} label={copy.nearest} cities={nearest} onCity={onCity} /> : null}
       </section>
     );
   }
@@ -1278,7 +1398,7 @@ function NoiseBinding({
     };
   }, [map]);
 
-  // Camera moves the panel asked for: a searched spot, or a city.
+  // Camera moves the panel asked for: a searched spot, or a covered area.
   useEffect(() => {
     if (!map || !flight) return;
     const camera = map as unknown as NoiseCameraMap;

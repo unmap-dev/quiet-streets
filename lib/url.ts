@@ -1,8 +1,8 @@
 import { findCity } from "@/lib/cities";
 
 /**
- * The shareable link: `?city=<slug>` opens the map on that city instead of the picker, and
- * `?period=night` colours it by the night level. Other keys (such as `lang`) are kept. Pinned
+ * The shareable link: `?city=<slug>` opens the map framed on that metropolitan area (any of the
+ * 41) instead of the national view, and `?period=night` colours it by the night level. Other keys (such as `lang`) are kept. Pinned
  * places are not in the link: each one is a lookup, and a link should cost nothing to open. Pure
  * functions; the app owns history. Unit-tested in test/url.test.ts.
  */
@@ -10,7 +10,7 @@ import { findCity } from "@/lib/cities";
 export type Period = "day" | "night";
 
 export interface QuietState {
-  /** The covered city the map opened on, by slug, or null for the picker. */
+  /** The covered area the map opened on, by slug, or null for the national view. */
   city: string | null;
   period: Period;
 }

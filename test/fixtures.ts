@@ -1,4 +1,5 @@
 import type { NoisePoint } from "@unmap/sdk";
+import { CITIES } from "../lib/cities";
 
 /** A hexagon's answer, as `/noise/point` returns it. Hillhurst, Calgary, unless overridden. */
 export function noisePoint(overrides: Partial<NoisePoint> = {}): NoisePoint {
@@ -37,10 +38,11 @@ export function silentPoint(overrides: Partial<NoisePoint> = {}): NoisePoint {
 
 export const META = { attribution: "© OpenStreetMap contributors; noise model: PickYourPlace", licence: "ODbL-1.0", status: "current", unmap_updated_at: "2026-11-10" };
 
+/** A 422 as the gateway sends it, with the covered areas built from the app's own list of 41. */
 export const CITIES_422 = {
   code: "outside_coverage",
-  error: "outside the covered cities",
-  cities: [{ slug: "calgary", name: { en: "Calgary", fr: "Calgary" }, bbox: [-114.334, 50.832, -113.856, 51.219] }],
+  error: "this point is outside the metropolitan areas Urban Noise covers",
+  cities: CITIES.map(({ slug, name, bbox }) => ({ slug, name, bbox })),
 };
 
 export function json(body: unknown, status = 200): Response {

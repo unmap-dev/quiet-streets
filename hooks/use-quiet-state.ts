@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { parseState, writeState, type QuietState } from "@/lib/url";
 
 /**
- * The city and the Day / Night colouring, kept in the query string so a link opens on them.
- * `ready` is false until the URL has been read, so a shared link to a city never flashes the
- * picker first.
+ * The area and the Day / Night colouring, kept in the query string so a link opens on them.
+ * `ready` is false until the URL has been read, so a shared link to an area never opens on the
+ * national view first.
  */
 export function useQuietState(): [QuietState & { ready: boolean }, (next: Partial<QuietState>) => void] {
   const [state, setState] = useState<QuietState & { ready: boolean }>({ city: null, period: "day", ready: false });

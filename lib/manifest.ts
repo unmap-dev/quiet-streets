@@ -8,8 +8,8 @@ export const MANIFEST: AppManifest = {
   slug: "quiet-streets",
   name: { en: "Quiet Streets", fr: "Rues tranquilles" },
   tagline: {
-    en: "How loud a street is, day and night, in six Canadian cities, and up to three places side by side.",
-    fr: "Le niveau de bruit d'une rue, le jour et la nuit, dans six villes canadiennes, et jusqu'à trois lieux côte à côte.",
+    en: "How loud a street is, day and night, across Canada's 41 metropolitan areas, and up to three places side by side.",
+    fr: "Le niveau de bruit d'une rue, le jour et la nuit, dans les 41 régions métropolitaines du Canada, et jusqu'à trois lieux côte à côte.",
   },
   services: [
     {

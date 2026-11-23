@@ -10,7 +10,7 @@ import type { NoisePoint } from "@unmap/sdk";
  * page a `fetch` that sits in front of the real one and, for three gateway paths only, keeps what
  * goes past:
  *
- * - `GET /noise/point`: an answer (200, or 422 outside the six cities) is kept for the session,
+ * - `GET /noise/point`: an answer (200, or 422 outside the 41 metropolitan areas) is kept for the session,
  *   keyed by the exact request, and served from memory if the same request is made again. Every
  *   lookup is published, so the app knows the place on the block's card and its levels.
  * - `GET /geocode/autocomplete`: the suggestions' names, by coordinate, so a place chosen from

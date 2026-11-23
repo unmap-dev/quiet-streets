@@ -8,7 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Quiet Streets · Unmap app",
   description:
-    "How loud a street is, day and night, in Calgary, Edmonton, Vancouver, Toronto, Montréal and Québec City, against the WHO guideline, with up to three places side by side. Built with Unmap and the Unmap component registry. Modelled, not measured. © OpenStreetMap contributors (ODbL); noise model: PickYourPlace.",
+    "How loud a street is, day and night, across Canada's 41 census metropolitan areas, against the WHO guideline, with up to three places side by side. Built with Unmap and the Unmap component registry. Modelled, not measured. © OpenStreetMap contributors (ODbL); noise model: PickYourPlace.",
 };
 
 export const viewport: Viewport = {
